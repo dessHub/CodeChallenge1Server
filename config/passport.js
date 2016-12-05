@@ -4,7 +4,6 @@ var GoogleStrategy   = require('passport-google-oauth').OAuth2Strategy;
 var FacebookStrategy = require('passport-facebook').Strategy;
 var configAuth       = require('./auth');
 var User             = require('../app/models/user');
-var Admin            = require('../app/models/admin');
 
 module.exports       = function(passport) {
   passport.serializeUser(function(user, done) {
@@ -12,19 +11,11 @@ module.exports       = function(passport) {
   });
 
   passport.deserializeUser(function(id, done){
-    Admin.findById(id, function(err, user){
-      if(err) 
-        done(err);
-      if(user){
-        done(null, user);
-      } else {
-        User.findById(id, function(err, user){
-          if(err) done(err);
-          done(null, user);
-        });
-      }
+    User.findById(id, function(err, user){
+      if(err) done(err);
+      done(null, user);
     });
-  });    
+  });
 
   function serializeClient(req, res, next) {
     if (req.query.permanent === 'true') {
@@ -56,6 +47,7 @@ passport.use('user-login', new LocalStrategy({
   passReqToCallback: true
 }, 
 function(req, email, password, done){
+  console.log(email);
   User.findOne({ "local.email": email }, function(err, user){
     /* 
        there's an error trying to look for user 
@@ -76,15 +68,19 @@ function(req, email, password, done){
        we found the user who wants to acces our system 
        but for some reason, password provided is wrong 
        */
-    if (!user.comparePassword) {
-        return done(null, false, req.flash('message', 'Oops! wrong password'));
-    }
+    User.comparePassword(password, user.local.password, function(err, isMatch){
+      if(err) throw(err);
 
+      if (isMatch) {
+        return done(null, user);
+      }else{
+        return done(null, false, req.flash('message', 'Oops! wrong password'));
+      }
+    });
     /* 
        all is well, we found the user and all the information 
        provided is correct 
-       */
-    return done(null, user);
+   */
   });
 }));
 
@@ -158,50 +154,6 @@ function(req, email, password, done){
           });
         }
       });
-    });
-  }));
-
-  passport.use('admin-signup', new LocalStrategy({
-        usernameField     : 'email',
-        passwordField     : 'password',
-        passReqToCallback : true
-  },
-  function(req, email, password, done) {
-    process.nextTick(function() {
-      Admin.findOne({ 'local.email':  email }, function(err, admin) {
-        if (err) return done(err);
-        if (admin) {
-          return done(null, false, req.flash('signupMessage', 'That email is already taken.'));
-        }
-        else {
-          var newUser            = new Admin();
-          newUser.local.email    = email;
-          newUser.local.password = newUser.generateHash(password);
-          newUser.save(function(err) {
-            if (err)
-              throw err;
-            return done(null, newUser);
-          });
-        }
-      });
-    });
-  }));
-
-  passport.use('admin-login', new LocalStrategy({
-        usernameField     : 'email',
-        passwordField     : 'password',
-        passReqToCallback : true
-  },
-  function(req, email, password, done) {
-    Admin.findOne({ 'local.email':  email }, function(err, admin) {
-      if (err)
-        return done(err);
-      if (!admin)
-        return done(null, false, req.flash('loginMessage', 'No user found.'));
-      if (!admin.validPassword(password))
-        return done(null, false, req.flash('loginMessage', 'Oops! Wrong password.'));
-      console.log(admin);
-      return done(null, admin);
     });
   }));
 };

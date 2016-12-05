@@ -9,7 +9,7 @@ module.exports =  {
   },
 
   create : function(req, res, next){
-    passport.authenticate('user-login', function(err, user){
+        passport.authenticate('user-login', function(err, user){
       if (err) return next(err);
       if (!user) {
         console.log('user not found');
@@ -24,10 +24,24 @@ module.exports =  {
          route, then after i login, redirect me back to /insert not /admin as it was before 
          */
          req.flash('success', "Successfully logged in");
+         console.log(req.user);
          res.redirect(req.session.returnTo || '/admin');
          delete req.session.returnTo;
       });
     })(req, res, next);
+  },
+
+  //User login for the phone application
+  usercreate : function(req, res,next){
+    passport.authenticate('user-login', function(err,user){
+      console.log(user);
+      if(err) return err;
+      if(!user){
+        console.log("not a user");
+        res.send("1");
+      }
+      res.send(user);
+    })(req, res, next);;
   },
 
   delete : function(req, res){
